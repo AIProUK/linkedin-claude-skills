@@ -191,6 +191,7 @@ def check_publora(report: Report, offline: bool) -> None:
             "https://api.publora.com/api/v1/platform-connections",
             headers={"x-publora-key": key},
             timeout=30,
+            allow_redirects=False,
         )
         if r.status_code == 200:
             payload = r.json() if r.content else {}

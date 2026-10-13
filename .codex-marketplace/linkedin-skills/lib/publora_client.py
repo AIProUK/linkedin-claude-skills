@@ -137,6 +137,7 @@ class PubloraClient:
                 "platformId": platform_id,
             },
             timeout=self.timeout,
+            allow_redirects=False,
         )
         return self._handle(r)
 
@@ -206,6 +207,7 @@ class PubloraClient:
     #: Statuses whose content is, or may be, already on the platform. Deleting
     #: one destroys the only record of something that stays live.
     LIVE_STATUSES = ("published", "partially_published")
+    CANCELLABLE_STATUSES = ("draft", "scheduled")
 
     def list_platform_connections(self) -> list[dict[str, Any]]:
         """Every channel this key can post to, with its `platformId`.
@@ -215,7 +217,10 @@ class PubloraClient:
         also derivable from the key, which is why `resolve_linkedin_platform_id`
         below asks rather than making the user copy it out of the dashboard.
         """
-        r = self._session.get(f"{self.BASE_URL}/platform-connections", timeout=self.timeout)
+        r = self._session.get(
+            f"{self.BASE_URL}/platform-connections", timeout=self.timeout,
+            allow_redirects=False,
+        )
         payload = self._handle(r)
         rows = payload.get("connections") or payload.get("data") or payload
         return rows if isinstance(rows, list) else []
@@ -234,7 +239,8 @@ class PubloraClient:
     def get_post(self, *, post_group_id: str) -> dict[str, Any]:
         """Read one post group: status, platforms, scheduled time, children."""
         r = self._session.get(
-            f"{self.BASE_URL}/get-post/{post_group_id}", timeout=self.timeout
+            f"{self.BASE_URL}/get-post/{post_group_id}", timeout=self.timeout,
+            allow_redirects=False,
         )
         return self._handle(r)
 
@@ -253,18 +259,16 @@ class PubloraClient:
         deleted it" from "it was not there".
 
         The status is read first, and a group whose content is already live is
-        refused unless `allow_live=True`. Publora's dashboard refuses the same
-        thing, but the public endpoint does not: it applies no status guard at
+        refused unless `allow_live=True`. Failed lookups and any status other
+        than draft or scheduled also refuse deletion. Publora's dashboard
+        refuses the same thing, but the public endpoint does not: it applies no status guard at
         all, so deleting a published group succeeds and wipes the record, the
         media and the stats of a post that stays up on LinkedIn
         (publora/publora.com#478). The check costs one GET and is the difference
         between cancelling a post and losing one.
         """
         if not allow_live:
-            try:
-                group = self.get_post(post_group_id=post_group_id)
-            except PubloraError:
-                group = {}                   # 404 here: let the DELETE report it
+            group = self.get_post(post_group_id=post_group_id)
             status = (group.get("postGroup") or group).get("status")
             if status in self.LIVE_STATUSES:
                 raise PubloraError(
@@ -274,9 +278,17 @@ class PubloraClient:
                     "post on LinkedIn instead, or pass allow_live=True if you really mean "
                     "to drop the record."
                 )
+            if status not in self.CANCELLABLE_STATUSES:
+                raise PubloraError(
+                    f"refusing to delete post group {post_group_id}: "
+                    f"status {status!r} is not draft or scheduled. "
+                    "Verify the post in Publora, or pass allow_live=True "
+                    "if you really mean to drop the record."
+                )
         r = self._session.delete(
             f"{self.BASE_URL}/delete-post/{post_group_id}",
             timeout=self.timeout,
+            allow_redirects=False,
         )
         return self._handle(r)
 
@@ -318,12 +330,15 @@ class PubloraClient:
     @_retry()
     def _post(self, path: str, json_body: dict[str, Any]) -> dict[str, Any]:
         r = self._session.post(
-            self.BASE_URL + path, json=json_body, timeout=self.timeout
+            self.BASE_URL + path, json=json_body, timeout=self.timeout,
+            allow_redirects=False,
         )
         return self._handle(r)
 
     @staticmethod
     def _handle(r: requests.Response) -> dict[str, Any]:
+        if 300 <= r.status_code < 400:
+            raise PubloraError(f"HTTP {r.status_code}: authenticated redirects are refused")
         if r.status_code >= 400:
             try:
                 body = r.json()

@@ -144,7 +144,8 @@ def probe(url, headers, timeout=30):
     import requests
 
     try:
-        r = requests.get(url, headers={"User-Agent": USER_AGENT, **headers}, timeout=timeout)
+        r = requests.get(url, headers={"User-Agent": USER_AGENT, **headers},
+                         timeout=timeout, allow_redirects=False)
         return r.status_code, r
     except Exception as exc:
         return None, exc
