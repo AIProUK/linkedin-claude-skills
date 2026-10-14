@@ -9,9 +9,10 @@ Offline. The network layer is replaced, so nothing is spent and no key is read.
 from __future__ import annotations
 
 import unittest
+from collections import OrderedDict
 from unittest import mock
 
-from lib.apify_client import ApifyClient
+from lib.apify_client import ApifyClient, ApifyError
 
 
 def client_with_spy(rows_per_call=0):
@@ -385,3 +386,49 @@ class UnpublishLimits(unittest.TestCase):
             result = backend_selector.unpublish(post_group_id="x")
         self.assertEqual(result["mode"], "manual")
         self.assertIn("nothing", result["message"].lower())
+
+
+class ApifyResponseShapeTests(unittest.TestCase):
+    def setUp(self):
+        self.client = ApifyClient.__new__(ApifyClient)
+        self.client._cache = OrderedDict()
+
+    def test_empty_list_is_a_valid_cacheable_response(self):
+        with mock.patch.object(
+            self.client, "_do_request", return_value=[]
+        ) as request:
+            result = self.client._run_sync("test/actor", {"limit": 1})
+            cached = self.client._run_sync("test/actor", {"limit": 1})
+
+        self.assertEqual(result, [])
+        self.assertEqual(cached, [])
+        request.assert_called_once()
+
+    def test_dictionary_response_raises_instead_of_becoming_empty_list(self):
+        with mock.patch.object(
+            self.client, "_do_request", return_value={"unexpected": "data"}
+        ):
+            with self.assertRaises(ApifyError):
+                self.client._run_sync("test/actor", {"limit": 1})
+
+    def test_malformed_response_is_not_cached(self):
+        with mock.patch.object(
+            self.client, "_do_request", side_effect=[
+                {"unexpected": "data"},
+                [{"id": "valid"}],
+            ],
+        ) as request:
+            with self.assertRaises(ApifyError):
+                self.client._run_sync("test/actor", {"limit": 1})
+
+            result = self.client._run_sync("test/actor", {"limit": 1})
+
+        self.assertEqual(result, [{"id": "valid"}])
+        self.assertEqual(request.call_count, 2)
+
+    def test_none_response_raises_instead_of_becoming_empty_list(self):
+        with mock.patch.object(
+            self.client, "_do_request", return_value=None
+        ):
+            with self.assertRaises(ApifyError):
+                self.client._run_sync("test/actor", {"limit": 1})
