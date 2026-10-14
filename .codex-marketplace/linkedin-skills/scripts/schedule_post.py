@@ -83,10 +83,6 @@ def main() -> int:
         print("(dry-run, nothing scheduled)")
         return 0
 
-    from dotenv import load_dotenv
-
-    load_dotenv(ROOT / ".env")
-
     from lib import active_backend, publish
 
     backend = active_backend()
