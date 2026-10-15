@@ -342,10 +342,16 @@ class ApifyClient:
             cached = self._cache_get(key)
             if cached is not None:
                 return cached
+
         data = self._do_request(actor_id, payload)
-        result = data if isinstance(data, list) else []
-        self._cache_put(key, result)
-        return result
+        if not isinstance(data, list):
+            raise ApifyError(
+                f"Unexpected response from Apify actor {actor_id}: "
+                f"expected a list, got {type(data).__name__}"
+            )
+
+        self._cache_put(key, data)
+        return data
 
     @_retry()
     def _do_request(

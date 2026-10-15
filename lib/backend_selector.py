@@ -398,6 +398,13 @@ def fetch_post(url: str, **kwargs: Any) -> Optional[dict]:
     except Exception:
         # Network/auth failures collapse to the same "ask user to paste" path
         # as missing-token. Skills don't need to branch on the reason.
+        #
+        # This also swallows the shape error ApifyError now raises on a
+        # malformed dataset response. That is deliberate at this layer, but it
+        # means the specific diagnosis is only visible to a caller that uses
+        # `ApifyClient.fetch_post` directly, which the reading skills do for
+        # comments and engagers. Reach for the client, not this wrapper, when
+        # you want to tell the user *why* a read failed.
         return None
 
 
