@@ -202,12 +202,22 @@ Four of the skills (Comment Drafter, Reply Handler, Hook Extractor, Engagement M
 
 Setup: drop `APIFY_TOKEN=apify_api_...` into your `.env`. The thin client at `lib/apify_client.py` exposes `fetch_post`, `fetch_post_comments`, `fetch_user_recent_comments`, and `fetch_post_engagers`.
 
-**This tier needs Claude Code, not claude.ai (web).** Publora and Pixfaro each publish a
-connector, so publishing and image generation work on claude.ai with one click. Apify does
-not: the client reads `APIFY_TOKEN` from the environment and runs a Python process, and
-claude.ai gives a skill neither. On claude.ai the reading skills notice the missing token
-and ask you to paste the post or thread instead, which is the same quality of result with
-one more step. For automatic reads, run the bundle in Claude Code with a `.env`.
+**On claude.ai, use the Apify MCP connector instead of a token.** The Python client reads
+`APIFY_TOKEN` from the environment and runs a process, and claude.ai gives a skill neither.
+Apify now publishes an MCP server, so the reads work there too. Add this as a custom
+connector:
+
+```
+https://mcp.apify.com?actors=apimaestro/linkedin-post-detail,apimaestro/linkedin-post-comments-replies-engagements-scraper-no-cookies,apimaestro/linkedin-profile-comments,scraping_solutions/linkedin-posts-engagers-likers-and-commenters-no-cookies
+```
+
+Sign in with OAuth on first use; no key on disk. Keep the `?actors=` filter: the bare
+`https://mcp.apify.com` also hands the agent `search-actors` and `call-actor`, which can
+run anything in the Apify Store at whatever that actor charges. The filtered URL exposes
+only these four and nothing that picks an actor on its own.
+
+The skills use it automatically when it is there, and still fall back to asking you to
+paste when it is not. Details and the field mapping: `references/mcp-read-layer.md`.
 
 A typical creator running daily comment ops + a weekly engager-analytics sweep stays under $2/month, well inside the free tier.
 
