@@ -116,7 +116,9 @@ class ApifyClient:
             Dict with keys: text, authorName, authorProfileUrl, urn, shareUrn,
             canShare, url, numLikes, numComments, numShares, postedAtISO, plus
             extra metadata. `shareUrn` is the reshare parent URN
-            (`urn:li:share:*` / `urn:li:ugcPost:*`).
+            (`urn:li:share:*` / `urn:li:ugcPost:*`). `postedAtISO` carries the
+            actor's object (`{timestamp, date}`) rather than an ISO string, which
+            the name suggests and no caller currently relies on.
         """
         items = self._run_sync(
             self.POST_ACTOR, {"post_urls": [post_url]}, force_refresh=force_refresh

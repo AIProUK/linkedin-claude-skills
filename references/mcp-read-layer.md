@@ -76,7 +76,7 @@ skills read, which is what `ApifyClient._normalize_post` produces:
 | `numComments` | `stats.comments` | |
 | `numShares` | `stats.shares` | |
 | `reactions` | `stats.reactions` | the per-type breakdown |
-| `postedAtISO` | `post.created_at` | |
+| `postedAtISO` | `post.created_at` | an object (`{timestamp, date}`), not an ISO string, despite the field name; the actor family returns timestamps this way |
 | `isReshare` | `is_reshared` | top level, not under `post` |
 | `resharedPost` | `reshared_post` | top level |
 

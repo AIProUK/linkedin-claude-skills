@@ -119,23 +119,31 @@ class RootActorTable(unittest.TestCase):
     for an actor the code never calls.
     """
 
+    #: Both documents carry the same table, and only one of them was fixed the
+    #: first time. README is where a new user actually looks.
+    TABLES = ("SKILL.md", "README.md")
+    ACTORS = ("POST_ACTOR", "POST_COMMENTS_ACTOR", "PROFILE_COMMENTS_ACTOR",
+              "POST_ENGAGERS_ACTOR")
+
+    def tables(self):
+        for name in self.TABLES:
+            doc = (ROOT / name).read_text(encoding="utf-8")
+            body = doc.split("| Use case | Actor", 1)
+            self.assertEqual(len(body), 2, f"{name} no longer carries the actor table")
+            yield name, body[1].split("\n\n", 1)[0]
+
     def test_the_actor_table_names_the_actors_the_client_calls(self):
-        doc = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        table = doc.split("Actors used", 1)[1].split("The thin client", 1)[0]
-        for attr in ("POST_ACTOR", "POST_COMMENTS_ACTOR", "PROFILE_COMMENTS_ACTOR",
-                     "POST_ENGAGERS_ACTOR"):
-            actor = getattr(ApifyClient, attr).replace("~", "/")
-            self.assertIn(actor, table, f"{attr} ({actor}) is missing from the table")
+        for name, table in self.tables():
+            for attr in self.ACTORS:
+                actor = getattr(ApifyClient, attr).replace("~", "/")
+                self.assertIn(actor, table, f"{name}: {attr} ({actor}) is missing")
 
     def test_the_table_names_no_actor_the_client_does_not_call(self):
-        doc = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        table = doc.split("Actors used", 1)[1].split("The thin client", 1)[0]
-        called = {getattr(ApifyClient, a).replace("~", "/") for a in
-                  ("POST_ACTOR", "POST_COMMENTS_ACTOR", "PROFILE_COMMENTS_ACTOR",
-                   "POST_ENGAGERS_ACTOR")}
-        listed = set(re.findall(r"`([a-z0-9_]+/[a-z0-9-]+)`", table))
-        self.assertEqual(sorted(listed - called), [],
-                         "the table advertises actors this bundle never calls")
+        called = {getattr(ApifyClient, a).replace("~", "/") for a in self.ACTORS}
+        for name, table in self.tables():
+            listed = set(re.findall(r"`([a-z0-9_]+/[a-z0-9-]+)`", table))
+            self.assertEqual(sorted(listed - called), [],
+                             f"{name} advertises actors this bundle never calls")
 
 
 if __name__ == "__main__":
